@@ -1,0 +1,20 @@
+{
+  "name": "Nota Rohya",
+  "short_name": "Nota Rohya",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#FFF0D1",
+  "theme_color": "#795757",
+  "icons": [
+    {
+      "src": "pray-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "pray-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
