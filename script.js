@@ -10,7 +10,20 @@ let currentWeekLabel = "";    // e.g. "2 Jan - 8 Jan 2026"
 let calendarYear = new Date().getFullYear();
 
 const DAY_LABELS = ["Fri", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu"];
-const TASKS = ["باكر", "غروب", "نوم", "قداس", "قراءة الكتاب المقدس", "صوم"];
+const DAY_LABELS_AR = ["الجمعة", "السبت", "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس"];
+// Order MUST match the rows in the table (top to bottom)
+const TASKS = [
+    "باكر",
+    "غروب",
+    "نوم",
+    "قداس",
+    "قراءة الكتاب المقدس",
+    "صوم",
+    "الاعتراف",
+    "تحضير درس الاسبوع",
+    "قراءة من كتاب خارجي",
+    "ممارسة روحية أخرى"
+];
 const MONTH_NAMES = ["January","February","March","April","May","June","July",
                       "August","September","October","November","December"];
 
@@ -81,7 +94,7 @@ function getCurrentWeek() {
 
 // ---- Page setup -------------------------------------------------------------
 window.addEventListener("DOMContentLoaded", function () {
-    document.querySelector('.refresh').addEventListener('click', clearCheckboxes);
+    document.querySelector('.refresh').addEventListener('click', confirmAndClearCheckboxes);
 
     document.querySelector('.progress').addEventListener('click', function () {
         const container = document.querySelector('.chart-container');
@@ -104,6 +117,13 @@ window.addEventListener("DOMContentLoaded", function () {
                 : new Date().getFullYear();
             generateWeeks();
         }
+    });
+
+    // Close modals when clicking the dark overlay itself (not the box)
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.style.display = 'none';
+        });
     });
 
     // Load the real current week automatically on page open
@@ -157,11 +177,23 @@ function buildDefaultTable() {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
+    // Tasks that open a modal instead of (or in addition to) their checkboxes
+    const CLICKABLE_TASKS = {
+        "قراءة الكتاب المقدس": { handler: "openBibleNotes()" },
+        "الاعتراف": { handler: "openConfessionModal()" },
+        "ممارسة روحية أخرى": { handler: "openOtherPracticeNotes()" }
+    };
+
     const tbody = document.createElement('tbody');
     TASKS.forEach(task => {
         const tr = document.createElement('tr');
         const tdTask = document.createElement('td');
-        tdTask.innerHTML = `<b>${task}</b>`;
+        const clickable = CLICKABLE_TASKS[task];
+        if (clickable) {
+            tdTask.innerHTML = `<b class="task-label" onclick="${clickable.handler}">${task}</b>`;
+        } else {
+            tdTask.innerHTML = `<b>${task}</b>`;
+        }
         tr.appendChild(tdTask);
         DAY_LABELS.forEach(() => {
             const td = document.createElement('td');
@@ -177,6 +209,13 @@ function buildDefaultTable() {
 }
 
 // ---- Clear / progress chart ----------------------------------------------------
+function confirmAndClearCheckboxes() {
+    const confirmed = window.confirm("هل أنت متأكد أنك تريد تصفير كل المربعات لهذا الأسبوع؟");
+    if (confirmed) {
+        clearCheckboxes();
+    }
+}
+
 function clearCheckboxes() {
     if (!currentWeekKey) return;
 
@@ -308,27 +347,160 @@ function saveWeek(key) {
     localStorage.setItem(key, JSON.stringify(matrix));
 }
 
+// ---- Modal helpers ----------------------------------------------------------
+function openModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'flex';
+}
+
+function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+}
+
+// ---- Bible reading notes (per week, one entry per day, saved to localStorage) ----
+// Storage key: `bible_notes_${weekKey}` -> { "الجمعة": "text", "السبت": "text", ... }
+function openBibleNotes() {
+    if (!currentWeekKey) return;
+
+    document.getElementById('bible-modal-week-label').innerText = currentWeekLabel;
+
+    const body = document.getElementById('bible-notes-body');
+    body.innerHTML = "";
+
+    const saved = JSON.parse(localStorage.getItem(`bible_notes_${currentWeekKey}`)) || {};
+
+    DAY_LABELS_AR.forEach((dayAr, i) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'bible-day-row';
+
+        const label = document.createElement('label');
+        label.className = 'modal-field-label';
+        label.innerText = dayAr;
+        label.setAttribute('for', `bible-note-${i}`);
+
+        const textarea = document.createElement('textarea');
+        textarea.id = `bible-note-${i}`;
+        textarea.className = 'modal-textarea modal-textarea-small';
+        textarea.placeholder = `ملاحظاتك عن قراءة يوم ${dayAr}...`;
+        textarea.value = saved[dayAr] || "";
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(textarea);
+        body.appendChild(wrapper);
+    });
+
+    openModal('bible-modal');
+}
+
+function saveBibleNotes() {
+    if (!currentWeekKey) return;
+
+    const data = {};
+    DAY_LABELS_AR.forEach((dayAr, i) => {
+        const textarea = document.getElementById(`bible-note-${i}`);
+        if (textarea) data[dayAr] = textarea.value;
+    });
+
+    localStorage.setItem(`bible_notes_${currentWeekKey}`, JSON.stringify(data));
+    closeModal('bible-modal');
+}
+
+// ---- Other spiritual practice notes (per week, one entry per day, saved to localStorage) ----
+// Storage key: `other_practice_notes_${weekKey}` -> { "الجمعة": "text", "السبت": "text", ... }
+function openOtherPracticeNotes() {
+    if (!currentWeekKey) return;
+
+    document.getElementById('other-practice-modal-week-label').innerText = currentWeekLabel;
+
+    const body = document.getElementById('other-practice-notes-body');
+    body.innerHTML = "";
+
+    const saved = JSON.parse(localStorage.getItem(`other_practice_notes_${currentWeekKey}`)) || {};
+
+    DAY_LABELS_AR.forEach((dayAr, i) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'bible-day-row';
+
+        const label = document.createElement('label');
+        label.className = 'modal-field-label';
+        label.innerText = dayAr;
+        label.setAttribute('for', `other-practice-note-${i}`);
+
+        const textarea = document.createElement('textarea');
+        textarea.id = `other-practice-note-${i}`;
+        textarea.className = 'modal-textarea modal-textarea-small';
+        textarea.placeholder = `اكتب الممارسة الروحية التي مارستها يوم ${dayAr}...`;
+        textarea.value = saved[dayAr] || "";
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(textarea);
+        body.appendChild(wrapper);
+    });
+
+    openModal('other-practice-modal');
+}
+
+function saveOtherPracticeNotes() {
+    if (!currentWeekKey) return;
+
+    const data = {};
+    DAY_LABELS_AR.forEach((dayAr, i) => {
+        const textarea = document.getElementById(`other-practice-note-${i}`);
+        if (textarea) data[dayAr] = textarea.value;
+    });
+
+    localStorage.setItem(`other_practice_notes_${currentWeekKey}`, JSON.stringify(data));
+    closeModal('other-practice-modal');
+}
+
+// ---- Confession record (ONE global record, not tied to a specific week) ----
+// Storage key: `confessionRecord` -> { fatherName, lastDate, notes }
+function openConfessionModal() {
+    const saved = JSON.parse(localStorage.getItem('confessionRecord')) || {};
+    document.getElementById('confession-father-name').value = saved.fatherName || "";
+    document.getElementById('confession-last-date').value = saved.lastDate || "";
+    document.getElementById('confession-notes').value = saved.notes || "";
+    openModal('confession-modal');
+}
+
+function saveConfessionRecord() {
+    const data = {
+        fatherName: document.getElementById('confession-father-name').value,
+        lastDate: document.getElementById('confession-last-date').value,
+        notes: document.getElementById('confession-notes').value
+    };
+    localStorage.setItem('confessionRecord', JSON.stringify(data));
+    closeModal('confession-modal');
+}
+
 // ---- Calendar -------------------------------------------------------------------
 function generateWeeks() {
     const container = document.querySelector('.weeks-container');
     container.innerHTML = "";
 
-    // Year navigation
+    // Header container with controls above the year
     const yearNav = document.createElement('div');
     yearNav.style.display = 'flex';
-    yearNav.style.justifyContent = 'space-between';
+    yearNav.style.flexDirection = 'column';
     yearNav.style.alignItems = 'center';
     yearNav.style.marginBottom = '12px';
+
+    const controlsRow = document.createElement('div');
+    controlsRow.style.display = 'flex';
+    controlsRow.style.alignItems = 'center';
+    controlsRow.style.gap = '8px';
+    controlsRow.style.marginBottom = '4px';
 
     const prevBtn = document.createElement('button');
     prevBtn.innerText = '◀';
     styleNavBtn(prevBtn);
     prevBtn.addEventListener('click', () => { calendarYear--; generateWeeks(); });
 
-    const yearLabel = document.createElement('h3');
-    yearLabel.innerText = calendarYear;
-    yearLabel.style.color = '#795757';
-    yearLabel.style.margin = '0';
+    const nextBtn = document.createElement('button');
+    nextBtn.innerText = '▶';
+    styleNavBtn(nextBtn);
+    nextBtn.addEventListener('click', () => { calendarYear++; generateWeeks(); });
 
     const todayBtn = document.createElement('button');
     todayBtn.innerText = 'Today';
@@ -341,15 +513,17 @@ function generateWeeks() {
         generateWeeks();
     });
 
-    const nextBtn = document.createElement('button');
-    nextBtn.innerText = '▶';
-    styleNavBtn(nextBtn);
-    nextBtn.addEventListener('click', () => { calendarYear++; generateWeeks(); });
+    controlsRow.appendChild(prevBtn);
+    controlsRow.appendChild(nextBtn);
+    controlsRow.appendChild(todayBtn);
 
-    yearNav.appendChild(prevBtn);
+    const yearLabel = document.createElement('h3');
+    yearLabel.innerText = calendarYear;
+    yearLabel.style.color = '#795757';
+    yearLabel.style.margin = '0';
+
+    yearNav.appendChild(controlsRow);
     yearNav.appendChild(yearLabel);
-    yearNav.appendChild(todayBtn);
-    yearNav.appendChild(nextBtn);
     container.appendChild(yearNav);
 
     // Group real weeks by the month that owns most of their days
