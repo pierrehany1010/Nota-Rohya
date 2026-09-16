@@ -22,10 +22,25 @@ const TASKS = [
     "الاعتراف",
     "تحضير درس الاسبوع",
     "قراءة من كتاب خارجي",
-    "ممارسة روحية أخرى"
+    "ممارسة روحية أخرى",
+    "حضور الاجتماع",
+    "حضور الخدمة"
 ];
 const MONTH_NAMES = ["January","February","March","April","May","June","July",
                       "August","September","October","November","December"];
+
+// Safe wrapper: never let a corrupted/old localStorage value crash the whole page
+function safeGetJSON(key, fallback) {
+    try {
+        const raw = localStorage.getItem(key);
+        if (raw === null) return fallback;
+        const parsed = JSON.parse(raw);
+        return parsed === null || parsed === undefined ? fallback : parsed;
+    } catch (e) {
+        console.warn(`Could not read saved data for "${key}", using default instead.`, e);
+        return fallback;
+    }
+}
 
 function pad(n) { return n.toString().padStart(2, '0'); }
 function toISO(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
@@ -143,7 +158,7 @@ function bindTableToWeek(week) {
         tableContainer.appendChild(table);
     }
 
-    const savedMatrix = JSON.parse(localStorage.getItem(currentWeekKey)) || [];
+    const savedMatrix = safeGetJSON(currentWeekKey, []);
     const rows = table.querySelectorAll("tr:not(:first-child)");
     rows.forEach((row, rowIndex) => {
         const checkboxes = row.querySelectorAll("input[type='checkbox']");
@@ -286,13 +301,30 @@ const chartBorderPlugin = {
 };
 
 function showChart() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js لم يتم تحميله - لا يمكن عرض الرسم البياني.');
+        const container = document.querySelector('.chart-container');
+        container.innerHTML = '<p style="color:#795757; text-align:center; padding:20px;">تعذر تحميل الرسم البياني. حاول تحديث الصفحة.</p>';
+        return;
+    }
+
     const matrix = getMatrixData();
     const taskLabels = Array.from(
         document.querySelectorAll(".table-container table tr:not(:first-child) td:first-child")
     ).map(td => td.innerText.trim());
 
     const dayLabels = DAY_LABELS;
-    const ctx = document.getElementById('progressChart').getContext('2d');
+
+    // Recreate the canvas if a previous failed attempt replaced it with an error message
+    let canvas = document.getElementById('progressChart');
+    if (!canvas) {
+        const container = document.querySelector('.chart-container');
+        container.innerHTML = '';
+        canvas = document.createElement('canvas');
+        canvas.id = 'progressChart';
+        container.appendChild(canvas);
+    }
+    const ctx = canvas.getContext('2d');
 
     if (chart) chart.destroy();
 
@@ -368,7 +400,7 @@ function openBibleNotes() {
     const body = document.getElementById('bible-notes-body');
     body.innerHTML = "";
 
-    const saved = JSON.parse(localStorage.getItem(`bible_notes_${currentWeekKey}`)) || {};
+    const saved = safeGetJSON(`bible_notes_${currentWeekKey}`, {});
 
     DAY_LABELS_AR.forEach((dayAr, i) => {
         const wrapper = document.createElement('div');
@@ -416,7 +448,7 @@ function openOtherPracticeNotes() {
     const body = document.getElementById('other-practice-notes-body');
     body.innerHTML = "";
 
-    const saved = JSON.parse(localStorage.getItem(`other_practice_notes_${currentWeekKey}`)) || {};
+    const saved = safeGetJSON(`other_practice_notes_${currentWeekKey}`, {});
 
     DAY_LABELS_AR.forEach((dayAr, i) => {
         const wrapper = document.createElement('div');
@@ -457,7 +489,7 @@ function saveOtherPracticeNotes() {
 // ---- Confession record (ONE global record, not tied to a specific week) ----
 // Storage key: `confessionRecord` -> { fatherName, lastDate, notes }
 function openConfessionModal() {
-    const saved = JSON.parse(localStorage.getItem('confessionRecord')) || {};
+    const saved = safeGetJSON('confessionRecord', {});
     document.getElementById('confession-father-name').value = saved.fatherName || "";
     document.getElementById('confession-last-date').value = saved.lastDate || "";
     document.getElementById('confession-notes').value = saved.notes || "";
