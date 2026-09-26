@@ -47,9 +47,23 @@ function isServantEmail(email) {
     return SERVANT_EMAILS.includes((email || '').toLowerCase().trim());
 }
 
+function setupPasswordToggles() {
+    document.querySelectorAll('.toggle-password').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = document.getElementById(btn.dataset.target);
+            if (!input) return;
+            const willShow = input.type === 'password';
+            input.type = willShow ? 'text' : 'password';
+            btn.classList.toggle('is-showing', willShow);
+            btn.setAttribute('aria-label', willShow ? 'إخفاء كلمة السر' : 'إظهار كلمة السر');
+        });
+    });
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('tab-login').addEventListener('click', () => switchAuthTab('login'));
     document.getElementById('tab-signup').addEventListener('click', () => switchAuthTab('signup'));
+    setupPasswordToggles();
 
     document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
