@@ -698,6 +698,44 @@ input[type="date"].modal-input {
     gap: 10px;
 }
 
+.password-field {
+    position: relative;
+    display: flex;
+}
+
+.password-field .modal-input {
+    padding-left: 38px; /* room for the eye icon; field is inside dir:rtl .auth-box */
+}
+
+.toggle-password {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 4px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #795757;
+    cursor: pointer;
+    line-height: 0;
+}
+
+.toggle-password .icon-eye-off {
+    display: none;
+}
+
+.toggle-password.is-showing .icon-eye {
+    display: none;
+}
+
+.toggle-password.is-showing .icon-eye-off {
+    display: block;
+}
+
 .auth-error {
     background: #ffdcdc;
     color: #a33;
